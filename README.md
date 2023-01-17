@@ -7,3 +7,6 @@ https://photos.app.goo.gl/XD3XtKHCLR6KuFhS9
 
 
 Lighting effects based on NeoPixels, and custom code I wrote to activate them individually.
+
+[ISD Video](https://photos.google.com/share/AF1QipOuW4K0J_yMDQOA_agWgGm0RNDhcW0MBYs12XNCtcLftvfbEZarzZgI_aQ6eU1jtA/photo/AF1QipNUU_HIZ2aDgCDPC5ougGlNus44bEYMES7hw9cd?key=Q3RFTWRxT3RHVC1FSkhQc0VzXzNoM1VPVWRwSmZR)
+
