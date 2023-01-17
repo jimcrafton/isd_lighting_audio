@@ -94,6 +94,7 @@ class BLEDevice {
       digitalWrite(ledOutPin, LOW);
     }
     stateLastTime = millis();
+    //Serial.println("ble ---b");
   }
 
   void checkState() {
@@ -108,22 +109,22 @@ class BLEDevice {
         int pinVal = digitalRead(ledOutPin);
         if (delta < 10 && pinVal == LOW) {
             digitalWrite(ledOutPin, HIGH);
-            Serial.println("....");
+            //Serial.println("....");
         }
         else if ((delta > 250 && delta < 300) && pinVal == HIGH) {
             digitalWrite(ledOutPin, LOW);
-            Serial.println(".");
+            //Serial.println(".");
         }
         else if ((delta > 300 && delta < 310) && pinVal == LOW) {
             digitalWrite(ledOutPin, HIGH);
-            Serial.println("....");
+            //Serial.println("....");
         }
         else if (delta > 550 && delta < 600 && pinVal == HIGH) {
             digitalWrite(ledOutPin, LOW);
             stateLastTime = millis();
             stateCmdRcvd = false;
-            Serial.println(".");
-            Serial.println("-");
+            //Serial.println(".");
+            //Serial.println("-");
         }
     }
     else {
@@ -240,95 +241,119 @@ class BLEDevice {
     }
   }
   
-  
-  String command(String cmdStr,String descStr){
-    ReadGuard rg(okToRead,false);
-    
-    Serial.println(cmdStr);
-    
-    tmpStr = "";
-    unsigned long t1 = millis();
-    m_serialDevice.println(cmdStr);
-    while (true){
-      char in_char = m_serialDevice.read();
-      //Serial.println(in_char);
-      if (int(in_char)==-1 or int(in_char)==42){
-        if ((millis()-t1)>2000){ // 2 second timeout
-          Serial.println("Err");
-          return "Err";
-        }
-        continue;
-      }
-      if (in_char=='\n'){
-        if (m_enableSerialOut) {
-          Serial.print("Bluetooth "+descStr);
-          Serial.println(tmpStr);// .substring(0, tmpStr.length()));
-        }
+  void command(String cmdStr, String descStr, String* strPtr) {
+      ReadGuard rg(okToRead, false);
 
-        if (m_serialDevice.available()) {
-          
-          continue;
-        }
-        else {
-          return tmpStr;
-        }
-      }
-      if (in_char >= 0x20 && in_char <= 127) {
-          tmpStr += in_char;
-      }
-    }
+      //Serial.println(cmdStr.c_str());
 
-    return tmpStr;
+
+      unsigned long t1 = millis();
+      m_serialDevice.println(cmdStr);
+      while (true) {
+          char in_char = m_serialDevice.read();
+          //Serial.println(in_char);
+          if (int(in_char) == -1 or int(in_char) == 42) {
+              if ((millis() - t1) > 2000) { // 2 second timeout
+                  Serial.println("Err");
+                  return "Err";
+              }
+              continue;
+          }
+          if (in_char == '\n') {
+              if (m_enableSerialOut) {
+                  Serial.print("Bluetooth ");
+                  Serial.print(descStr);
+                  if (strPtr != NULL) {
+                      Serial.println(*strPtr);// .substring(0, tmpStr.length()));
+                  }
+              }
+
+              if (m_serialDevice.available()) {
+
+                  continue;
+              }
+              else {
+                  return;
+              }
+          }
+          if (in_char >= 0x20 && in_char <= 127) {
+              if (strPtr != NULL) {
+                  (*strPtr) += in_char;
+              }
+          }
+      }
   }
 
-  String getDeviceName() {
-    return  command("AT+NAME","Device Name: " );
+  void command(String cmdStr, String descStr) {
+      command(cmdStr, descStr, NULL);
+  }
+
+  void command(String cmdStr, String descStr, String& result){
+      command(cmdStr, descStr, &result);
+  }
+
+  void getDeviceName(String& result) {
+    command("AT+NAME","Device Name: ", result);
   }
   
 
-  void rename() {
+  void rename() {      
       command("AT+NAMEISD Obliterator","rename ");
-
   }
 
 
-  void help() {    
+  void help(String& result) {    
     ReadGuard rg(okToRead,false);
+    
     int crLfCount = 0;
-    tmpStr = "";
+
     unsigned long t1 = millis();
     m_serialDevice.println("AT+HELP");
+
     while (true) {
       char in_ch = m_serialDevice.read();
       if ((millis()-t1)>2000){ // 2 second timeout
-        Serial.println("timed out");
+        //Serial.println("ble-to");
         break;
       }
+      
       if ( int(in_ch) == -1 or int(in_ch)==42) {
         continue;
       }
-      tmpStr += in_ch;
-      if (in_ch == '\n'){
-        if (tmpStr==String('\r')+String('\n')) {
-          if (crLfCount == 0) {
-            crLfCount = 1;          
-            continue;
-          }
-          break;
-        }
-        if (m_enableSerialOut) {
-          Serial.print(tmpStr);
-        }
-        tmpStr = "";
-      }
-    }
 
-    Serial.println("done with help");
+      result += in_ch;
+      
+      
+      bool breakLoop = false;
+      if (in_ch == '\n'){
+          
+        if (result.length() == 2) { 
+            if (result[0] == '\r' && result[1] == '\n') {
+                
+              if (crLfCount == 0) {
+                crLfCount = 1;
+                continue;
+              }
+              breakLoop = true;
+            }
+        }
+
+        if (breakLoop) {
+            break;
+        }
+
+        if (m_enableSerialOut) {
+          Serial.print(result);
+        }
+      }    
+    }
+    
   }
   
 
 private:
-  String tmpStr;
+  
+    //String tmpStr;
   bool m_enableSerialOut;
   SoftwareSerial m_serialDevice;
   unsigned long lastTime;

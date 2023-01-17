@@ -181,118 +181,121 @@ public:
 
 
 class LedCollection {
-  public:
-  LedController** collectionPtr;
-  int size; 
-  unsigned long startTime;
-  bool enabled;
-  int delayFactor;
-  static char fullOnArray[50];
-  static char startedArray[50];
-  byte intensityIncr;
-  LedCollection():
-    collectionPtr(NULL),
-    size(0),
-    startTime(0),
-    enabled(true),
-    delayFactor(20),
-      intensityIncr(2)
-  {
-    
-  }
+public:
+	LedController** collectionPtr;
+	int size;
+	unsigned long startTime;
+    unsigned long prevRun;
+	bool enabled;
+	int delayFactor;
+	static char fullOnArray[50];
+	static char startedArray[50];
+	byte intensityIncr;
+	LedCollection() :
+		collectionPtr(NULL),
+		size(0),
+		startTime(0),
+        prevRun(0),
+		enabled(true),
+		delayFactor(20),
+		intensityIncr(2)
+	{
 
-  ~LedCollection() {
-      
-  }
+	}
 
-  void setDelay(int v) {
-    delayFactor = v;
-  }
+	~LedCollection() {
 
-  byte getIntensityIncr() const { return  intensityIncr; }
-  void setIntensityIncr(byte v) {
-      intensityIncr = v;
-  }
+	}
 
-  void init(LedController** coll, int sz) {
-    collectionPtr = coll;
-    size = sz;
-    startTime = millis();
-    enabled = true;
-  }
+	void setDelay(int v) {
+		delayFactor = v;
+	}
 
-  bool isEnabled() const { return enabled; }
-  void setEnabled(bool v) { 
+	byte getIntensityIncr() const { return  intensityIncr; }
+	void setIntensityIncr(byte v) {
+		intensityIncr = v;
+	}
+
+    void init(LedController** coll, int sz) {
+	    collectionPtr = coll;
+	    size = sz;
+	    startTime = millis();
+	    enabled = true;
+    }
+
+    bool isEnabled() const { return enabled; }
+    void setEnabled(bool v) { 
     enabled = v; 
-  }
-  
-  
-  bool empty() const { return size;}
-
-  void loop() {
-    unsigned long now = millis();
-    if (enabled == false) {
-      return;
     }
-    
-    //only loop every X millseconds. simulate delay()
-    
-    unsigned long  delta = now-startTime;
-    if (now % delayFactor == 0 ) {
-        float oldI = 0;
-        float newI = 0;
-        memset(fullOnArray, -1, sizeof(fullOnArray));
-        memset(startedArray, -1, sizeof(startedArray));
-        
-        int events = 0;
-      for (int i=0;i<size;i++ ) {
+  
+  
+    bool empty() const { return size;}
 
-        LedController* led = collectionPtr[i];        
-        oldI = led->getIntensity();
-        if ( led->isEnabled(delta) ) {            
-          led->preUpdate(delta,intensityIncr);
-          newI = led->getIntensity();
+    void loop() {
+	    unsigned long now = millis();
+	    if (enabled == false) {
+		    return;
+	    }
 
-          led->update();          
+	    //only loop every X millseconds. simulate delay()
 
-          if ((oldI != newI) && (newI >= 255)) {
-              fullOnArray[i] = (char)i;
-              events++;
-          }
-          else if ((oldI <= 0) && (newI > 0)) {
-              startedArray[i] = (char)i;
-              events++;
-          }
-        }
-      }
-      
-      
-      if (events == 0) {
-          return;
-      }
-        LedController* led = NULL;
-        for (int i = 0; i < size; i++) {
-            char idx = startedArray[i];
-            if (idx >= 0) {
-                led = collectionPtr[idx];
-                if (led) {
-                    led->ledStarted();
-                }
-            }
-              
-            idx = fullOnArray[i];
-            if (idx >= 0) {
-                led = collectionPtr[idx];
-                if (led) {
-                    led->ledFullOn();
-                }
-            }
-        }
-        memset(fullOnArray, -1, sizeof(fullOnArray));
-        memset(startedArray, -1, sizeof(startedArray));
+	    unsigned long  delta = now - startTime;
+	    if ((now % delayFactor == 0) || ((now-prevRun)> delayFactor)) {
+		    float oldI = 0;
+		    float newI = 0;
+		    memset(fullOnArray, -1, sizeof(fullOnArray));
+		    memset(startedArray, -1, sizeof(startedArray));
+
+		    int events = 0;
+		    for (int i = 0; i < size; i++) {
+
+			    LedController* led = collectionPtr[i];
+			    oldI = led->getIntensity();
+			    if (led->isEnabled(delta)) {
+				    led->preUpdate(delta, intensityIncr);
+				    newI = led->getIntensity();
+
+				    led->update();
+
+				    if ((oldI != newI) && (newI >= 255)) {
+					    fullOnArray[i] = (char)i;
+					    events++;
+				    }
+				    else if ((oldI <= 0) && (newI > 0)) {
+					    startedArray[i] = (char)i;
+					    events++;
+				    }
+			    }
+		    }
+
+            prevRun = millis();
+
+		    if (events == 0) {
+			    return;
+		    }
+		    LedController* led = NULL;
+		    for (int i = 0; i < size; i++) {
+			    char idx = startedArray[i];
+			    if (idx >= 0) {
+				    led = collectionPtr[idx];
+				    if (led) {
+					    led->ledStarted();
+				    }
+			    }
+
+			    idx = fullOnArray[i];
+			    if (idx >= 0) {
+				    led = collectionPtr[idx];
+				    if (led) {
+					    led->ledFullOn();
+				    }
+			    }
+		    }
+		    memset(fullOnArray, -1, sizeof(fullOnArray));
+		    memset(startedArray, -1, sizeof(startedArray));
             
+	    }
     }
-  }
 };
 
 static char LedCollection::fullOnArray[50];
@@ -404,6 +407,7 @@ public:
     #if TLC_5940_ENABLED
     if (g_tlcICPtr) {
       writeLED(*g_tlcICPtr, this->getIdx(),value,intensity);
+      //Serial.print("+tl"); Serial.print(this->getIdx());
     }
     #endif
     
@@ -669,6 +673,7 @@ class Engine : public RgbLed {
   virtual void preUpdate(unsigned long timeFromStart, byte intensityIncr) {
     incrIntensity(intensityIncr);
     byte idx = getIdx()- idxOffset;
+    //Serial.print("|E"); Serial.print(getIdx()); Serial.print(","); Serial.print(intensity); Serial.println("|");
     if (intensity < 255) {
         rgb_color res;
         if (idx == LEFT_ENGINE || idx == CENTER_ENGINE|| idx == RIGHT_ENGINE) {
@@ -691,6 +696,7 @@ class Engine : public RgbLed {
 #if NEOPIXELS_ENABLED    
       if (g_pixelsPtr) {
           writeRgbLED(*g_pixelsPtr, getIdx()/* + idxOffset */, color.r, color.g, color.b, intensity);
+          //Serial.print("+El"); Serial.print(this->getIdx());
       }
 #endif //NEOPIXELS_ENABLED
   }
@@ -706,7 +712,10 @@ class ISDEngines : public LedCollection {
 public:
 
   enum {
-    ENGINE_COUNT = 7
+    ENGINE_COUNT = 7,
+    MAIN_ENGINE_START_OFFSET = 2000,
+    MAIN_ENGINE_START = 5000,
+    MINI_ENGINE_START = 3400,
   };
   
   Engine* engines[ENGINE_COUNT];
@@ -797,7 +806,7 @@ public:
     setIntensityIncr(2);
 
     int engineId = 0;
-    unsigned long engStart = 0;
+    unsigned long engStart = MAIN_ENGINE_START - MAIN_ENGINE_START_OFFSET;
     float r, g, b;
     r = g = b = 0.0;
     /*
@@ -817,7 +826,7 @@ public:
       switch(i) {
         case 0:{
           engineId = CENTER_ENGINE;
-          engStart = 0;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MAIN_ENGINE_BASE_COLOR1_R;
           g = MAIN_ENGINE_BASE_COLOR1_G;
           b = MAIN_ENGINE_BASE_COLOR1_B;
@@ -826,7 +835,8 @@ public:
 
         case 1:{
           engineId = LEFT_ENGINE;
-          engStart = (1500 - (MAIN_ENGINE_RANGE/2)) + rand() % MAIN_ENGINE_RANGE;
+          //engStart = (1500 - (MAIN_ENGINE_RANGE/2)) + rand() % MAIN_ENGINE_RANGE;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MAIN_ENGINE_BASE_COLOR1_R;
           g = MAIN_ENGINE_BASE_COLOR1_G;
           b = MAIN_ENGINE_BASE_COLOR1_B;
@@ -835,7 +845,7 @@ public:
 
         case 2:{
           engineId = RIGHT_ENGINE;
-          engStart = (1800 - (MAIN_ENGINE_RANGE / 2)) + rand() % MAIN_ENGINE_RANGE;
+          engStart += MAIN_ENGINE_START_OFFSET;// (1800 - (MAIN_ENGINE_RANGE / 2)) + rand() % MAIN_ENGINE_RANGE;
           r = MAIN_ENGINE_BASE_COLOR1_R;
           g = MAIN_ENGINE_BASE_COLOR1_G;
           b = MAIN_ENGINE_BASE_COLOR1_B;
@@ -844,7 +854,7 @@ public:
 
         case 3:{
           engineId = LEFT_ENGINE_TOP;
-          engStart = 0;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MINI_ENGINE_BASE_COLOR1_R;
           g = MINI_ENGINE_BASE_COLOR1_G;
           b = MINI_ENGINE_BASE_COLOR1_B;
@@ -853,7 +863,8 @@ public:
 
         case 4:{
           engineId = LEFT_ENGINE_BOTTOM;
-          engStart = (1000 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          //engStart = (1000 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MINI_ENGINE_BASE_COLOR1_R;
           g = MINI_ENGINE_BASE_COLOR1_G;
           b = MINI_ENGINE_BASE_COLOR1_B;
@@ -862,7 +873,8 @@ public:
 
         case 5:{
           engineId = RIGHT_ENGINE_TOP;          
-          engStart = (1500 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          //engStart = (1500 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MINI_ENGINE_BASE_COLOR1_R;
           g = MINI_ENGINE_BASE_COLOR1_G;
           b = MINI_ENGINE_BASE_COLOR1_B;
@@ -871,7 +883,8 @@ public:
 
         case 6:{
           engineId = RIGHT_ENGINE_BOTTOM;
-          engStart = (2000 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          //engStart = (2000 - (MINI_ENGINE_RANGE / 2)) + rand() % MINI_ENGINE_RANGE;
+          engStart += MAIN_ENGINE_START_OFFSET;
           r = MINI_ENGINE_BASE_COLOR1_R;
           g = MINI_ENGINE_BASE_COLOR1_G;
           b = MINI_ENGINE_BASE_COLOR1_B;
@@ -910,7 +923,7 @@ class ShipSection : public RgbLed {
 
   virtual void ledFullOn() {
       if (g_delegatePtr) {
-          g_delegatePtr->onSectionLedFullOn(this);
+          g_delegatePtr->onSectionLedFullOn(this);          
       }
   }
 
@@ -928,7 +941,7 @@ class ShipSection : public RgbLed {
                         MAIN_LIGHT_COLOR1_R, 
               MAIN_LIGHT_COLOR1_G, 
               MAIN_LIGHT_COLOR1_B, intensity);
-          //Serial.print(" led ");Serial.print(idx);Serial.print(" intens: ");Serial.print(color.intensity);DPRINTLN(" updateLed() ");
+          //Serial.print(" intens: ");Serial.print(color.intensity);DPRINTLN(" updateLed() ");
       }
 #endif //NEOPIXELS_ENABLED
   }
@@ -943,6 +956,10 @@ public:
     TOP_SECTION = 13,
     BOTTOM_SECTION = 7,
     SECTION_COUNT = TOWER + TOP_SECTION + BOTTOM_SECTION
+  };
+
+  enum Times{
+      SECTION_OFFSET = 1050
   };
   
   ShipSection* sections[ISDSections::SECTION_COUNT];//[SECTION_COUNT];
@@ -975,7 +992,7 @@ public:
     
     LedController::g_delegatePtr = delegate;
 
-    unsigned long st = 0;
+    unsigned long st = SECTION_OFFSET;
 
     for (int i=0;i< ISDSections::SECTION_COUNT;i++ ) {
 #if NEOPIXELS_ENABLED
@@ -983,7 +1000,7 @@ public:
 #endif //NEOPIXELS_ENABLED      
       sections[i]->setEnabled(false);
 
-      st += 800;
+      st += SECTION_OFFSET;
     }
   }
 
@@ -1026,6 +1043,10 @@ public:
 class ISDSpecialSections : public LedCollection {
 public:
 
+    enum Times {
+        SECTION_OFFSET = 1050
+    };
+
   enum Parts {
     GARBAGE_CHUTE = 1,
     SIDE_LIGHTS_R = 3,
@@ -1033,11 +1054,10 @@ public:
     DOCKING_BAY_LIGHT = 1,
     FWD_BAY_LIGHT = 1,
     SECTION_COUNT = GARBAGE_CHUTE + 
-                    SIDE_LIGHTS_R + SIDE_LIGHTS_L + 
-                    DOCKING_BAY_LIGHT +
-                    FWD_BAY_LIGHT,
-
-      GARBAGE_CHUTE_IDX = 8,
+    SIDE_LIGHTS_R + SIDE_LIGHTS_L + 
+    DOCKING_BAY_LIGHT +
+    FWD_BAY_LIGHT,
+    GARBAGE_CHUTE_IDX = 8,
   };
   
   SpecialSection* sections[ISDSpecialSections::SECTION_COUNT];
@@ -1113,16 +1133,18 @@ public:
     
     LedController::g_delegatePtr = delegate;
 
+    unsigned long st = SECTION_OFFSET;
+
     for (int i=0;i< ISDSpecialSections::SECTION_COUNT;i++ ) {
       #if TLC_5940_ENABLED
         if (i > 1 && i < ISDSpecialSections::SECTION_COUNT - 1) {
-            sections[i]->init(tlcIc, i, 80, 1000 + (i * 1000));
+            sections[i]->init(tlcIc, i, 80, st);
         }
         else {
-            sections[i]->init(tlcIc, i, 255, 1000 + (i * 1000));
+            sections[i]->init(tlcIc, i, 255, st);
         }
         
-
+        st += SECTION_OFFSET;
       #endif //TLC_5940_ENABLED
       sections[i]->setEnabled(false);
     }
@@ -1270,8 +1292,8 @@ class Sound : public BaseController {
   
 
   void init(DFRobotDFPlayerMini& p, int index, byte v, unsigned long st, byte initialIntensity) {
-      g_playerPtr = &p;
-      setStartTime(st);
+    g_playerPtr = &p;
+    setStartTime(st);
     setIdx(index);    
     intensity = initialIntensity;
     setValue(v);
@@ -1299,6 +1321,7 @@ class Sound : public BaseController {
       setStartTimeInvalid();
     if (g_playerPtr) {
       if (g_playerPtr->readCurrentFileNumber() == this->getIdx()) {
+          //Serial.print("-s"); Serial.println(getIdx());
           g_playerPtr->pause();
       }
     }
@@ -1312,15 +1335,16 @@ class Sound : public BaseController {
           //int vol = min(value * intensity / 255, 255);
           //vol = map(vol, 0, 255, 0, MAX_VOLUME);
         
-          //very expensive call!! Need to reduce calls to this!
+          //very expensive call!! Need tso reduce calls to this!
           //g_playerPtr->volume(vol);  //Set volume value. From 0 to 30
         //DPRINT("vol changed to "); DPRINTLN(vol);
 
         if (!playStarted) {
           if ( (playCount==0) || ((playCount > 0) && loopMode)) {
               g_playerPtr->play(getIdx());
-            DPRINT("Playing item "); DPRINTLN(getIdx());
-            playStarted = true;
+            DPRINT("Playing item "); DPRINTLN(getIdx());     
+            //Serial.print("*p"); Serial.print(getIdx()); Serial.println(millis());
+            playStarted = true; 
             playCount ++;
           }
         }
@@ -1332,9 +1356,11 @@ class Sound : public BaseController {
 
 
 enum SoundConstants {
-    IMPERIAL_MARCH = 0,
-    ENGINES_STARTUP = 1,
-    SECTION_POWERUP = 2,
+    IMPERIAL_MARCH = 1,
+    VADERS_INTRO = 2,
+    //ENGINES_STARTUP = 1,
+    //SECTION_POWERUP = 2,
+    FULL_START_UP = 1,
     STOP_CURRENT = 0xFF
 };
 
@@ -1394,7 +1420,7 @@ public:
         unsigned long curr = millis();
         playerUsable = false;
 
-        if (!soundPlayer.begin(serialControl)) {  //Use softwareSerial to communicate with mp3.
+        if (!soundPlayer.begin(serialControl, true, false)) {  //Use softwareSerial to communicate with mp3.
             //DPRINTLN(F("err:"));
             //DPRINTLN(F("1.Please recheck the connection!"));
             //DPRINTLN(F("2.Please insert the SD card!"));
@@ -1412,7 +1438,11 @@ public:
         else {
             playerUsable = true;
         }
+
         DPRINTLN(F("df ok"));
+
+        Serial.println("dfok");
+
         soundPlayer.EQ(DFPLAYER_EQ_CLASSIC);
         soundPlayer.volume(playerVolume);
 
@@ -1467,9 +1497,11 @@ public:
                 break;
             case FileIndexOut:
                 //DPRINTLN(F("File Index Out of Bound"));
+                //Serial.println("OOB");
                 break;
             case FileMismatch:
                 //DPRINTLN(F("Cannot Find File"));
+                //Serial.println("no-file");
                 break;
             case Advertise:
                 //DPRINTLN(F("In Advertise"));
@@ -1525,11 +1557,15 @@ public:
   }
 
   void playSound( int idx ) {
-    stopSounds();
-    Sound* sound = getSound(idx);
-    if (NULL != sound ) {
-      sound->setStartTime(millis());
-    }
+      playSoundAt(idx, 0);
+  }
+
+  void playSoundAt(int idx, unsigned long startTimeFromNow) {
+      Sound* sound = getSound(idx);
+      if (NULL != sound) {
+          sound->setStartTime(startTimeFromNow);
+          sound->setEnabled(true);
+      }
   }
 
   void init() {
@@ -1540,7 +1576,8 @@ public:
             sound->init(soundPlayer, i, 1, -1, 1);
             sound->setEnabled(false);
         }
-        sounds[0]->init(soundPlayer, 1, 1, 3000, 0);
+        sounds[0]->init(soundPlayer, 7, 1, 0, 0);
+        sounds[1]->init(soundPlayer, 8, 1, 0, 0);
     }
   }
 
@@ -1556,6 +1593,7 @@ public:
     switch (type) {      
       case DFPlayerPlayFinished:
         //Serial.print(F("Number:"));
+         // Serial.print("*pf"); Serial.println(value);
         //Serial.print(value);
         //DPRINTLN(F(" Play Finished!"));
 
@@ -1578,8 +1616,9 @@ public:
     }
 
     if (!playerUsable) {
+        //Serial.println("!pu");
         return;
-    }
+    }    
 
     unsigned long now = millis();
 
@@ -1591,9 +1630,10 @@ public:
       for (int i=0;i<MAX_SOUND_COUNT;i++ ) {
         Sound* sound = sounds[i];          
         if ( sound->isEnabled(delta) ) {
-          sound->update();    
+          sound->update(); 
+          //Serial.print("*su"); Serial.println(i);
           if (sound->isPlaying()) {
-            break;//don't check anyone else, busy now
+            //break;//don't check anyone else, busy now
           }
         }
       }

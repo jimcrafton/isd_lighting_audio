@@ -17,12 +17,21 @@ namespace libISD {
     public:
         enum Constants {
             SOFTWARE_SERIAL_RX = 10, 
-            SOFTWARE_SERIAL_TX = 11,            
+            SOFTWARE_SERIAL_TX = 11,  
+            SERVER_INIT_LED_FREQUENCY = 500,
         };
 
-        ISDSecondaryAudioController():
-            sndController(SOFTWARE_SERIAL_RX, SOFTWARE_SERIAL_TX) {
+        
+        bool serverInitSent;
+        bool serverPlaySent;
+        unsigned long prevMillis;
 
+        ISDSecondaryAudioController():
+            sndController(SOFTWARE_SERIAL_RX, SOFTWARE_SERIAL_TX),
+            serverInitSent(false),
+            serverPlaySent(false),
+            prevMillis(0){
+            prevMillis = millis();
         }
 
         virtual ~ISDSecondaryAudioController() {
@@ -31,11 +40,70 @@ namespace libISD {
 
 
         void init() {
+            delay(500);
+
             client.init(this);
             sndController.init();
+            sndController.stop();
+            Serial.println("2au ok");
+
+            digitalWrite(LED_BUILTIN, HIGH);
+            delay(250);
+            digitalWrite(LED_BUILTIN, LOW);
+            delay(250);
+            digitalWrite(LED_BUILTIN, HIGH);
+            delay(250);
+            digitalWrite(LED_BUILTIN, LOW);
+            delay(250);
+            digitalWrite(LED_BUILTIN, HIGH);
+            delay(250);
+            digitalWrite(LED_BUILTIN, LOW);
         }
 
         void loop() {
+            if (sndController.soundPlayer.available()) {
+                //Print the detail message from DFPlayer to handle different errors and states.
+                sndController.soundStatus(sndController.soundPlayer.readType(), sndController.soundPlayer.read());
+            }
+
+            if (!sndController.playerUsable) {
+                //Serial.println("!pu");
+                return;
+            }
+
+            unsigned long now = millis();
+
+            if (now - prevMillis > 500) {
+                if (serverInitSent) {                    
+                    if (digitalRead(LED_BUILTIN) == LOW) {
+                        digitalWrite(LED_BUILTIN, HIGH);                        
+                    }
+                    else {
+                        digitalWrite(LED_BUILTIN, LOW);
+                    }
+                }
+                prevMillis = now;
+            }
+
+
+            /*
+            //only loop every X millseconds. simulate delay()
+            int delayFactor = 20;
+            unsigned long  delta = now - startTime;
+            if (now % delayFactor == 0) {
+
+                for (int i = 0; i < MAX_SOUND_COUNT; i++) {
+                    Sound* sound = sounds[i];
+                    if (sound->isEnabled(delta)) {
+                        sound->update();
+                        //Serial.print("*su"); Serial.println(i);
+                        if (sound->isPlaying()) {
+                            //break;//don't check anyone else, busy now
+                        }
+                    }
+                }
+            }
+            */
         }
         
 
@@ -45,12 +113,19 @@ namespace libISD {
         }
 
         virtual void onPlay(int song) {
+            serverPlaySent = true;
+
             if (song == STOP_CURRENT) {
                 sndController.stop();
             }
             else {
                 sndController.play(song);
             }
+        }
+
+        virtual void onServerInit() {
+            Serial.println("svr i");
+            serverInitSent = true;
         }
     };
 
@@ -118,10 +193,11 @@ namespace libISD {
             mainLights(new ISDSections()),
 
             engines(new ISDEngines()),
-            /*
+            
             sndController(new SoundController(SOFTWARE_SERIAL_RX,SOFTWARE_SERIAL_TX)),
+            
             errorController(new ISDErrors()),
-            */
+            
             bleDevice(new BLEDevice(4, 2, BLE_LED_STATE_PIN, BLE_LED_STATE_OUT)),
             server(new ServerI2C()),
             inStartupSequence(false),
@@ -143,6 +219,9 @@ namespace libISD {
         void init() {
             ErrorControllerDelegate::g_delegatePtr = this;
             //DPRINTLN("ISDController::init() starting...");
+            server->init();
+            Serial.println("svr i");
+
 
 #if NEOPIXELS_ENABLED
             //neo pixels initialization
@@ -155,6 +234,7 @@ namespace libISD {
             // END of Trinket-specific code.
             rgbNeoPixels.begin();
             rgbNeoPixels.clear();
+            Serial.println("neo i");
 #endif //NEOPIXELS_ENABLED
 
             //tlc5940 init 
@@ -162,46 +242,61 @@ namespace libISD {
             Tlc.init();
             Tlc.clear();
             Tlc.update();
+            Serial.println("tlc i");
 #endif //TLC_5940_ENABLED
 
             bleDevice->begin(this, BLE_DEVICE_BAUD);
-            bleDevice->help();
+            Serial.println("ble b");
+            String s;
+            bleDevice->help(s);
+            Serial.println("ble i");
+
             
-            server->init();
 
             //DPRINTLN("i miscL");
             miscLights->initSections(Tlc, this);
-
-
-            /*
-            
-
-            
+            Serial.println("misc i");
 
             errorController->initSections(Tlc, ISDSpecialSections::SECTION_COUNT);
-            */
+            Serial.println("er i");
 
             //DPRINTLN("i mainL");
             mainLights->initSections(rgbNeoPixels,this);
-            
+            Serial.println("main i");
+
             int engineOffset = ISDSections::SECTION_COUNT;            
             //DPRINTLN("i eng");
             engines->initEngines(rgbNeoPixels, engineOffset, this);
+            Serial.println("eng i");
 
-            /*
             //DPRINTLN("i snd");
             sndController->init();
-            
+            Serial.println("snd i");
+            /*
             //DPRINTLN("ISDController::init() done");
 
             
 */
+
+            server->sendCommand(i2c::MSG_INIT_FROM_SERVER, 0);
+            
+            Serial.println("svr s");
+
             inStartupSequence = true;
             startMainLights();
+
+            setVolume(18);
+            playSoundAt(FULL_START_UP, 0);
         }
 
         void startMainLights() {
             mainLights->start();
+
+            if (inStartupSequence) {
+                server->sendCommand(i2c::MSG_UPDATE_AUDIO_VOLUME, 15);
+                
+                server->sendCommand(i2c::MSG_PLAY, VADERS_INTRO);
+            }            
         }
 
         void stopMainLights() {
@@ -235,31 +330,46 @@ namespace libISD {
            miscLights->loop();
            
             mainLights->loop();
-            
+           
             engines->loop(); 
-            /*
+            
             sndController->loop();
             
+            
             errorController->loop();
-            */
+            
 
             bleDevice->loop();
            
         }
 
+
+
+        void setVolume(int val) {
+            sndController->setVolume(val);
+        }
+
+        void play(int val) {
+            sndController->playSound(val);
+        }
+
+        void playSoundAt(int sound, unsigned long startTimeFromNow) {
+            sndController->playSoundAt(sound, startTimeFromNow);
+        }
+
         //ISDControllerBleCallback impl
         virtual void onUpdateAudioVolume(int val) {
-            Serial.println(">>6");
-            //sndController->setVolume(val);
+            //Serial.println(">>6");
+            setVolume(val);
         }
 
         virtual void onPlayImperialMarch() {
-            Serial.println(">>1");
-            //sndController->playSound(IMPERIAL_MARCH);
+            //Serial.println(">>1");
+            play(IMPERIAL_MARCH);
         }
 
         virtual void onGarbageChuteOn(bool val) {
-            Serial.println(">>2");
+            //Serial.println(">>2");
 
             inStartupSequence = false;
             inMainLightsSequence = false;
@@ -268,17 +378,17 @@ namespace libISD {
         }
 
         virtual void onPowerUpLightSpeedEngines(bool val) {
-            Serial.println(">>3");
+            //Serial.println(">>3");
            // engines->setMainEngines(val);
         }
 
         virtual void onPowerUpSubLightEngines(bool val) {
-            Serial.println(">>4");
+            //Serial.println(">>4");
             //engines->setMiniEngines(val);
         }
 
         virtual void onPowerUpMainSystems(bool val) {
-            Serial.println(">>5");
+            //Serial.println(">>5");
             if (val) {
                 inMainLightsSequence = true;
                 startMainLights();
@@ -296,15 +406,17 @@ namespace libISD {
         virtual void onLedFullOn(Led* led) {
             DPRINT("A ");
             DPRINTLN(led->getIdx());
+            //Serial.print("-L"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
         }
 
         virtual void onEngineLedFullOn(Engine* led) {
             DPRINT("B ");
             DPRINTLN(led->getIdx());
+           // Serial.print("-E"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
 
-            if (inStartupSequence && led->getIdx() == 6) {
+            if (inStartupSequence && led->getIdx() == 34) {
                 inStartupSequence = false;
-               // Serial.println("!!");
+               //Serial.println("!!");
                 //Serial.println(millis());
             }
         }
@@ -314,6 +426,7 @@ namespace libISD {
             DPRINT(section->getIdx());
             DPRINT(" ");
             DPRINTLN(millis());
+            //Serial.print("-S"); Serial.print(section->getIdx()); Serial.print("|"); Serial.println(millis());
 
             if (section->getIdx() == (ISDSections::SECTION_COUNT - 1)) {
                 if (inStartupSequence || inMainLightsSequence) {
@@ -330,6 +443,8 @@ namespace libISD {
             DPRINT(" ");
             DPRINTLN(millis());
 
+            //Serial.print("-s"); Serial.print(special->getIdx()); Serial.print("|"); Serial.println(millis());
+
             if (inStartupSequence && special->getIdx() == (ISDSpecialSections::SECTION_COUNT - 1)) {
                 startEngines();
             }
@@ -340,6 +455,7 @@ namespace libISD {
             DPRINT(millis());
             DPRINT(" idx: ");
             DPRINTLN(led->getIdx());
+            //Serial.print("+L"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
         }
 
         virtual void onEngineLedStarted(Engine* led) {
@@ -347,6 +463,7 @@ namespace libISD {
             //DPRINT(millis());
             //DPRINT(" idx: ");
             DPRINTLN(led->getIdx());
+            //Serial.print("+E"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
         }
 
         virtual void onSectionLedStarted(ShipSection* led) {
@@ -356,6 +473,7 @@ namespace libISD {
             DPRINT(led->getIdx());
             DPRINT(" ");
             DPRINTLN(millis());
+            //Serial.print("+S"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
         }
 
         virtual void onSpecialSectionLedStarted(SpecialSection* led) {
@@ -366,6 +484,8 @@ namespace libISD {
 
             DPRINT(" ");
             DPRINTLN(millis());
+
+            //Serial.print("+s"); Serial.print(led->getIdx()); Serial.print("|"); Serial.println(millis());
         }
 
 

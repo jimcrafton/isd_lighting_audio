@@ -12,6 +12,7 @@ public:
 
     virtual void onUpdateAudioVolume( int val ) = 0;
     virtual void onPlay(int song) = 0;
+    virtual void onServerInit() = 0;
 };
 
 
@@ -22,6 +23,7 @@ namespace i2c {
         ETX = 0x03,
         MSG_UPDATE_AUDIO_VOLUME = 0xFF,
         MSG_PLAY = 0xFE,
+        MSG_INIT_FROM_SERVER = 0xFD,
     };
 }
 
@@ -39,6 +41,7 @@ class  ServerI2C{
     Wire.write(arg);
     Wire.write(i2c::ETX);
     Wire.endTransmission();
+    delay(100);
   }
   
 };
@@ -53,6 +56,7 @@ class  ClientI2C{
     ClientI2C::instance = this;
     currentCmdIdx = 0;
     callbackPtr = NULL;
+    
   }
 
   ~ClientI2C() {
@@ -62,12 +66,15 @@ class  ClientI2C{
   void init(ISDControllerI2CCallback* callback) {
     callbackPtr = callback;
     Wire.begin(i2c::I2C_BUS_ID);
-    Wire.onReceive(ClientI2C::onRcvEvent);    
+    Wire.onReceive(ClientI2C::handleRcvEvent);
   }
   
   byte currentCmd[4];
   byte currentCmdIdx;
   ISDControllerI2CCallback* callbackPtr;
+
+  
+
 
   void reciveEvent(int howMany) {
       
@@ -81,6 +88,15 @@ class  ClientI2C{
         processCmd();
       }
     }
+    /*
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(200);
+    digitalWrite(LED_BUILTIN, LOW);
+    delay(200);
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(200);
+    digitalWrite(LED_BUILTIN, LOW);
+    */
   }
 
   void processCmd() {
@@ -99,12 +115,21 @@ class  ClientI2C{
           callbackPtr->onUpdateAudioVolume(currentCmd[2]);
         }
       }
+      break;
 
       case i2c::MSG_PLAY : {
         if (callbackPtr) {
           callbackPtr->onPlay(currentCmd[2]);
         }
       }
+      break;
+       
+      case i2c::MSG_INIT_FROM_SERVER: {
+          if (callbackPtr) {
+              callbackPtr->onServerInit();
+          }
+      }
+       break;
       
       default : {
         
@@ -113,7 +138,7 @@ class  ClientI2C{
     }
   }
   
-  static void onRcvEvent(int howMany) {
+  static void handleRcvEvent(int howMany) {
     if (ClientI2C::instance) {
       ClientI2C::instance->reciveEvent(howMany);
     }

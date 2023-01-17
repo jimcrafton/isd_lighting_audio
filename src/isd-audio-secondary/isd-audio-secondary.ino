@@ -33,7 +33,9 @@ ErrorControllerDelegate* ErrorControllerDelegate::g_delegatePtr = NULL;
 ISDSecondaryAudioController audioClient;
 
 void setup() {
+  Serial.begin(115200); 
   // put your setup code here, to run once:
+  
   audioClient.init();
 }
 

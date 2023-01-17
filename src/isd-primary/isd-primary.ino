@@ -28,13 +28,11 @@ int freeMemory() {
 
 #include "lib_isd_model.h"
 
+#include "lib_isd_global_inits.i"
+
 using namespace libISD;
 
-Adafruit_NeoPixel* libISD::RgbLed::g_pixelsPtr = NULL;
-Tlc5940* libISD::Led::g_tlcICPtr = NULL;
-LedControllerEventDelegate* LedController::g_delegatePtr = NULL;
-DFRobotDFPlayerMini* Sound::g_playerPtr = NULL;
-ErrorControllerDelegate* ErrorControllerDelegate::g_delegatePtr = NULL;
+
 
 ISDController isdModel;
  
@@ -42,36 +40,15 @@ void setup() {
   // put your setup code here, to run once:
 Serial.begin(115200); 
 //
-#ifdef TESTING
- 
-  Serial.println("serial port initialized");
-  
-  #ifdef _DEBUG
-    Serial.println("_DEBUG defined");
-  #else
-    Serial.println("!_DEBUG NOT defined!");
-  #endif
-  Serial.print("free mem: "); Serial.println(freeMemory());
+Serial.print("p1|");Serial.println(millis());
 
-  /*
-  Serial.print("ISDSpecialSections ");Serial.println(libISD::ISDSpecialSections::sizeOf());
-  Serial.print("ISDSections ");Serial.println(libISD::ISDSections::sizeOf());
-  Serial.print("ISDEngines ");Serial.println(libISD::ISDEngines::sizeOf());
-  Serial.print("SoundController ");Serial.println(libISD::SoundController::sizeOf());
-  Serial.print("ShipSection ");Serial.println(sizeof(libISD::ShipSection));
-  Serial.print("ISDErrors ");Serial.println(libISD::SoundController::sizeOf());
-*/
-  Serial.println(millis());
-#endif //TESTING
+ 
   
   isdModel.init();
+  
+  Serial.print("ps1|");Serial.println(millis());
+  
 
-#ifdef TESTING  
-  Serialr.println("inits all done");
-
-Serial.print("time ");
-Serial.println(millis());
-#endif //TESTING
 
 Serial.println("i");
   
