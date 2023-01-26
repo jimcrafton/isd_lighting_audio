@@ -6,8 +6,11 @@
 #include "lib_isd.h"
 
 
+#define TEST_INIT 1
+
 namespace libISD {
 
+    
 
     class ISDSecondaryAudioController : public ISDControllerI2CCallback {
     private:
@@ -167,19 +170,11 @@ namespace libISD {
 
         //sections 
         ISDSpecialSections* miscLights;
-
         ISDSections* mainLights;
-
         ISDEngines* engines;
-
-        SoundController* sndController;
-
         ISDErrors* errorController;
-
         BLEDevice* bleDevice;
-
-        ServerI2C* server;
-
+        ServerI2C* audioServer;
         bool inStartupSequence;
         bool inMainLightsSequence;
 
@@ -194,12 +189,12 @@ namespace libISD {
 
             engines(new ISDEngines()),
             
-            sndController(new SoundController(SOFTWARE_SERIAL_RX,SOFTWARE_SERIAL_TX)),
+            //sndController(new SoundController(SOFTWARE_SERIAL_RX,SOFTWARE_SERIAL_TX)),
             
             errorController(new ISDErrors()),
             
             bleDevice(new BLEDevice(4, 2, BLE_LED_STATE_PIN, BLE_LED_STATE_OUT)),
-            server(new ServerI2C()),
+            audioServer(new ServerI2C()),
             inStartupSequence(false),
             inMainLightsSequence(false)
         {
@@ -210,16 +205,16 @@ namespace libISD {
             delete miscLights;
             delete mainLights;
             delete engines;
-            delete sndController;
             delete errorController;
             delete bleDevice;
-            delete server;
+            delete audioServer;
         }
 
         void init() {
             ErrorControllerDelegate::g_delegatePtr = this;
             //DPRINTLN("ISDController::init() starting...");
-            server->init();
+#if TEST_INIT
+            audioServer->init();
             Serial.println("svr i");
 
 
@@ -245,6 +240,8 @@ namespace libISD {
             Serial.println("tlc i");
 #endif //TLC_5940_ENABLED
 
+#endif
+
             bleDevice->begin(this, BLE_DEVICE_BAUD);
             Serial.println("ble b");
             String s;
@@ -252,7 +249,7 @@ namespace libISD {
             Serial.println("ble i");
 
             
-
+#if TEST_INIT
             //DPRINTLN("i miscL");
             miscLights->initSections(Tlc, this);
             Serial.println("misc i");
@@ -270,39 +267,35 @@ namespace libISD {
             Serial.println("eng i");
 
             //DPRINTLN("i snd");
-            sndController->init();
-            Serial.println("snd i");
+#endif
+
+
+#if TEST_INIT
             /*
             //DPRINTLN("ISDController::init() done");
 
             
 */
 
-            server->sendCommand(i2c::MSG_INIT_FROM_SERVER, 0);
+            audioServer->sendCommand(i2c::MSG_INIT_FROM_SERVER, 0);
             
             Serial.println("svr s");
 
             inStartupSequence = true;
             startMainLights();
-
-            setVolume(18);
-            playSoundAt(FULL_START_UP, 0);
+#endif
+            //setVolume(18);
+            //playSoundAt(FULL_START_UP, 0);
         }
 
         void startMainLights() {
-            mainLights->start();
-
-            if (inStartupSequence) {
-                server->sendCommand(i2c::MSG_UPDATE_AUDIO_VOLUME, 15);
-                
-                server->sendCommand(i2c::MSG_PLAY, VADERS_INTRO);
-            }            
+            mainLights->start();            
         }
 
         void stopMainLights() {
             inStartupSequence = false;
             mainLights->stop();
-            server->sendCommand(i2c::MSG_PLAY, STOP_CURRENT);
+            stopAudio();
         }
 
         void startMiscLights() {
@@ -312,7 +305,7 @@ namespace libISD {
         void stopMiscLights() {
             inStartupSequence = false;
             miscLights->stop();
-            server->sendCommand(i2c::MSG_PLAY, STOP_CURRENT);
+            stopAudio();
         }
 
         void startEngines() {
@@ -322,44 +315,51 @@ namespace libISD {
         void stopEngines() {
             inStartupSequence = false;
             engines->stop();
-            server->sendCommand(i2c::MSG_PLAY, STOP_CURRENT);
+            stopAudio();
         }
 
         void loop() {
             
-           miscLights->loop();
-           
-            mainLights->loop();
-           
-            engines->loop(); 
-            
-            sndController->loop();
-            
-            
+           miscLights->loop();           
+            mainLights->loop();           
+            engines->loop();             
             errorController->loop();
-            
-
-            bleDevice->loop();
-           
+            bleDevice->loop();           
         }
 
 
 
         void setVolume(int val) {
-            sndController->setVolume(val);
+            audioServer->sendCommand(i2c::MSG_UPDATE_AUDIO_VOLUME, val);            
         }
 
         void play(int val) {
-            sndController->playSound(val);
+            
+            audioServer->sendCommand(i2c::MSG_PLAY, val);
         }
 
-        void playSoundAt(int sound, unsigned long startTimeFromNow) {
-            sndController->playSoundAt(sound, startTimeFromNow);
+        //void playSoundAt(int sound, unsigned long startTimeFromNow) {
+            //sndController->playSoundAt(sound, startTimeFromNow);
+        //}
+
+        void stopAudio() {
+            audioServer->sendCommand(i2c::MSG_PLAY, STOP_CURRENT);
         }
 
         //ISDControllerBleCallback impl
+        virtual void onStartPowerSequence() {
+            mainLights->stop();
+            engines->stop();
+            miscLights->stop();
+            stopAudio();
+            inStartupSequence = true;
+            inMainLightsSequence = true;
+            startMainLights();
+            audioServer->sendCommand(i2c::MSG_PLAY, FULL_START_UP);
+        }
+
         virtual void onUpdateAudioVolume(int val) {
-            //Serial.println(">>6");
+            //Serial.print(">>6-"); Serial.println(val);
             setVolume(val);
         }
 
@@ -378,13 +378,15 @@ namespace libISD {
         }
 
         virtual void onPowerUpLightSpeedEngines(bool val) {
-            //Serial.println(">>3");
-           // engines->setMainEngines(val);
+            
+            Serial.print(">>3-"); Serial.println(val);
+            engines->setMiniEngines(val);
         }
 
         virtual void onPowerUpSubLightEngines(bool val) {
-            //Serial.println(">>4");
-            //engines->setMiniEngines(val);
+            //Serial.print(">>4-"); Serial.println(val);
+            engines->setMainEngines(val);
+            //engines->stop();
         }
 
         virtual void onPowerUpMainSystems(bool val) {

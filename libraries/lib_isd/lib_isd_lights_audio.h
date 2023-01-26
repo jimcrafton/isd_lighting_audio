@@ -138,12 +138,12 @@ public:
         if (isStartTimeInvalid()) {
             return false;
         }
-
-        unsigned long st = getStartTime();
-
+        
         if (!getEnabled()) {
             return false;
         }
+
+        unsigned long st = getStartTime();              
 
         return timeFromStart >= st;
     }
@@ -240,7 +240,7 @@ public:
 	    //only loop every X millseconds. simulate delay()
 
 	    unsigned long  delta = now - startTime;
-	    if ((now % delayFactor == 0) || ((now-prevRun)> delayFactor)) {
+	    if ( /*(now % delayFactor == 0) || */ ((now - prevRun)> delayFactor)) {
 		    float oldI = 0;
 		    float newI = 0;
 		    memset(fullOnArray, -1, sizeof(fullOnArray));
@@ -672,7 +672,7 @@ class Engine : public RgbLed {
 
   virtual void preUpdate(unsigned long timeFromStart, byte intensityIncr) {
     incrIntensity(intensityIncr);
-    byte idx = getIdx()- idxOffset;
+    int idx = getKind();
     //Serial.print("|E"); Serial.print(getIdx()); Serial.print(","); Serial.print(intensity); Serial.println("|");
     if (intensity < 255) {
         rgb_color res;
@@ -701,7 +701,50 @@ class Engine : public RgbLed {
 #endif //NEOPIXELS_ENABLED
   }
 
-  
+
+  int getKind() const {
+      int idx = getIdx() - idxOffset;
+      return idx;
+  }
+
+  void restart(unsigned long engStart) {
+      srand(time(NULL));
+      float r, g, b;
+      r = g = b = 0.0;
+      int range = 40;
+      
+      switch (getKind()) {
+          case CENTER_ENGINE:case RIGHT_ENGINE:case LEFT_ENGINE: {
+              r = MAIN_ENGINE_BASE_COLOR1_R;
+              g = MAIN_ENGINE_BASE_COLOR1_G;
+              b = MAIN_ENGINE_BASE_COLOR1_B;
+          }
+          break;
+
+          case LEFT_ENGINE_TOP:case LEFT_ENGINE_BOTTOM:
+          case RIGHT_ENGINE_TOP: case RIGHT_ENGINE_BOTTOM: {
+              r = MINI_ENGINE_BASE_COLOR1_R;
+              g = MINI_ENGINE_BASE_COLOR1_G;
+              b = MINI_ENGINE_BASE_COLOR1_B;
+          }
+          break;
+      }
+
+      int rn = (rand() % range) - (range / 2);
+      int gn = (rand() % range) - (range / 2);
+      int bn = (rand() % range) - (range / 2);
+
+      setRGB(max(0, min(255, r + rn)),
+          max(0, min(255, g + gn)),
+          max(0, min(255, b + bn)));
+
+      setStartTime(engStart);
+      setEnabled(true);
+      intensity = 0;
+
+      setModified(true);
+  }
+
 };
 
 
@@ -759,11 +802,15 @@ public:
 
 
   void setMainEngines(bool start) {
+      unsigned long engStart = 0;
+      
       for (int i = 0; i < ENGINE_COUNT; i++) {
-          switch (engines[i]->getIdx()) {
+          switch (engines[i]->getKind()) {
               case CENTER_ENGINE:case RIGHT_ENGINE:case LEFT_ENGINE: {
                   if (start) {
-                      engines[i]->setEnabled(true);                      
+                      engines[i]->restart(engStart);
+                      Serial.print(i); Serial.print("-"); Serial.println(engStart);
+                      engStart += MAIN_ENGINE_START_OFFSET;
                   }
                   else {
                       engines[i]->stop();
@@ -778,12 +825,15 @@ public:
   }
 
   void setMiniEngines(bool start) {
+      unsigned long engStart = 0;
       for (int i = 0; i < ENGINE_COUNT; i++) {
-          switch (engines[i]->getIdx()) {
+          switch (engines[i]->getKind()) {
             case LEFT_ENGINE_TOP:case LEFT_ENGINE_BOTTOM:
             case RIGHT_ENGINE_TOP: case RIGHT_ENGINE_BOTTOM: {
                 if (start) {
-                    engines[i]->setEnabled(true);
+                    engines[i]->restart(engStart);
+                    Serial.print(i); Serial.print("-"); Serial.print(engStart);
+                    engStart += MAIN_ENGINE_START_OFFSET;
                 }
                 else {
                     engines[i]->stop();
@@ -796,6 +846,7 @@ public:
       setEnabled(true);
       startTime = millis();
   }
+
   void initEngines(Adafruit_NeoPixel& pixels, int offset, LedControllerEventDelegate* delegate)
   {
     //engineIdxOffset = offset;
@@ -1100,20 +1151,23 @@ public:
       for (int i = 0; i < ISDSpecialSections::SECTION_COUNT; i++) {
           int idx = sections[i]->getIdx();
           if (idx == ISDSpecialSections::GARBAGE_CHUTE_IDX) {
-              sections[i]->setEnabled(val);              
-              if (val) {
-                  sections[i]->setStartTime(0);
+              sections[i]->setEnabled(val);    
+              sections[i]->setStartTime(0);
+              
+              if (val) {                  
                   sections[i]->setValue(255);
                   sections[i]->setIntensity(50);
               }
               else {
-                  sections[i]->setStartTime(1000 + (idx * 1000));
                   sections[i]->stop();
+                  sections[i]->setValue(0);
+                  sections[i]->setIntensity(0);
               }
-              startTime = millis();
+              
               break;
           }
       }
+      startTime = millis();
       setEnabled(true);
   }
   
@@ -1368,7 +1422,7 @@ class SoundControllerBase {
 public:
     enum Constants {
         SERIAL_CTRL_BAUD = 9600,
-        MAX_SOUND_COUNT = 5,
+        MAX_SOUND_COUNT = 2,
         DFPLAYER_INIT_TIMEOUT = 3000,
     };
 
@@ -1408,6 +1462,7 @@ public:
         if (val != playerVolume) {
             playerVolume = val;
             soundPlayer.volume(playerVolume);
+            Serial.print("spv-"); Serial.println(val);
         }
     }
 

@@ -17,6 +17,7 @@ public:
     virtual void onPowerUpLightSpeedEngines( bool val ) = 0;
     virtual void onPowerUpSubLightEngines( bool val ) = 0;
     virtual void onPowerUpMainSystems( bool val ) = 0;
+    virtual void onStartPowerSequence() = 0;
 };
 
 
@@ -62,6 +63,7 @@ class BLEDevice {
     MSG_POWER_UP_LIGHT_SPEED_ENGINES = 0xFC,
     MSG_POWER_UP_SUBLIGHT_ENGINES = 0xFB,
     MSG_POWER_UP_MAIN_SYSTEMS = 0xFA,
+    MSG_START_POWER_SEQUENCE = 0xF8,
 
     READ_TIMEOUT = 2000,
     STATE_TIMEOUT = 1000,
@@ -145,20 +147,24 @@ class BLEDevice {
     checkState();
     
     if (!okToRead) {
-        //Serial.println("!");
+       
       return;
     }
     
-    int avail = m_serialDevice.available();
+    
     delay(1);
+    int avail = m_serialDevice.available();    
+    //delay(1);
     while (avail > 0) {
       uint8_t  in_ch = m_serialDevice.read();
-
+      
+      
       checkState();
       
       if ((millis()-lastTime) > READ_TIMEOUT ){ // 2 second timeout        
         lastTime = millis();
-        currentCmdIdx = 0;
+        currentCmdIdx = 0;      
+        
         return;
       }
                
@@ -167,7 +173,9 @@ class BLEDevice {
       currentCmdIdx++;
   
       if (currentCmdIdx == sizeof(currentCmd)) {
+          
         processCmd();
+        
         currentCmdIdx = 0;      
       }
       delay(2);
@@ -176,19 +184,21 @@ class BLEDevice {
 
   void processCmd() {
     if (currentCmd[0] != STX || currentCmd[3] != ETX) {
-        DPRINTLN("Bad command frame, no STX or ETX");
-        
+        DPRINTLN("Bad command frame, no STX or ETX");        
       return;
     }
 
     byte cmd = currentCmd[1];
     byte arg = currentCmd[2];
 
-    Serial.println(cmd);
+    //Serial.println(cmd);
+
     stateCmdRcvd = true;
     digitalWrite(ledOutPin, LOW);
     stateLastTime = millis();
     checkState();
+
+    
 
     switch (cmd) {
       case MSG_UPDATE_AUDIO_VOLUME : {
@@ -232,9 +242,18 @@ class BLEDevice {
         }
       }
       break;
+
+      case MSG_START_POWER_SEQUENCE: {
+          if (callbackPtr) {
+              callbackPtr->onStartPowerSequence();
+          }
+      }
+      break;
+      
       
       default : {
           DPRINTLN("Unknown command!");
+          Serial.println("!U");
          return;
       }
       break;
@@ -261,8 +280,8 @@ class BLEDevice {
           }
           if (in_char == '\n') {
               if (m_enableSerialOut) {
-                  Serial.print("Bluetooth ");
-                  Serial.print(descStr);
+                  //Serial.print("Bluetooth ");
+                  //Serial.print(descStr);
                   if (strPtr != NULL) {
                       Serial.println(*strPtr);// .substring(0, tmpStr.length()));
                   }
@@ -341,13 +360,14 @@ class BLEDevice {
         if (breakLoop) {
             break;
         }
-
-        if (m_enableSerialOut) {
-          Serial.print(result);
-        }
+        delay(100);
+        
       }    
     }
-    
+
+    if (m_enableSerialOut) {
+        Serial.println(result);
+    }
   }
   
 
