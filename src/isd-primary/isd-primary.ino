@@ -37,20 +37,12 @@ using namespace libISD;
 ISDController isdModel;
  
 void setup() {
-  // put your setup code here, to run once:
-Serial.begin(115200); 
-//
-Serial.print("p1|");Serial.println(millis());
 
- 
+  Serial.begin(115200); 
   
   isdModel.init();
   
-  Serial.print("ps1|");Serial.println(millis());
-  
-
-
-Serial.println("i");
+  Serial.println("i");
   
 }
 
