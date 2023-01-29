@@ -97,6 +97,7 @@ public class ISDBluetoothController {
     static final byte MSG_START_POWER_SEQUENCE =(byte) 0xF8;
     static final byte MSG_PLAY_VADER_INTRO =(byte) 0xF7;
     static final byte MSG_ENGINES_START_SEQUENCE =(byte) 0xF6;
+    static final byte MSG_STOP_AUDIO =(byte) 0xF5;
 
 
 
@@ -422,6 +423,11 @@ public class ISDBluetoothController {
 
     @SuppressLint("MissingPermission")
     void btWriteMessage(int msg, int arg) {
+        byte[] data = frameMessage(msg, arg);
+        String s = String.format("0x%02x 0x%02x 0x%02x 0x%02x ",data[0], data[1], data[2], data[3]);
+        Log.i("bt-msg", s);
+
+
         boolean isReady = false;
         if (btAdapter.isEnabled() ) {
             if (null != btConnection && null != btDevice) {
@@ -433,14 +439,11 @@ public class ISDBluetoothController {
             return;
         }
 
-        byte[] data = frameMessage(msg, arg);
-
         btWriteCharacteristic.setWriteType(writeType);
         btWriteCharacteristic.setValue(data);
         btConnection.writeCharacteristic(btWriteCharacteristic);
 
-        //String s = String.format("0x%02x 0x%02x 0x%02x 0x%02x ",data[0], data[1], data[2], data[3]);
-        //Log.i("msg", s);
+
     }
 
     void btWriteMessage(int message) {
@@ -469,6 +472,7 @@ public class ISDBluetoothController {
                 }
             });
         }
+
     }
 
     @SuppressLint("MissingPermission")
@@ -486,11 +490,11 @@ public class ISDBluetoothController {
     }
 
     public void startPowerSequence(boolean withAudio) {
-        btWriteMessage( MSG_START_POWER_SEQUENCE );
+        btWriteMessage( MSG_START_POWER_SEQUENCE, withAudio ? ARG_WITH_AUDIO : 0x00 );
     }
 
     public void startEnginesSequence(boolean withAudio) {
-        btWriteMessage( MSG_ENGINES_START_SEQUENCE );
+        btWriteMessage( MSG_ENGINES_START_SEQUENCE, withAudio ? ARG_WITH_AUDIO : 0x00 );
     }
 
     public void changeAudio1Volume(int volume, int minVolume, int maxVolume) {
@@ -510,18 +514,21 @@ public class ISDBluetoothController {
         btWriteMessage( MSG_GARBAGE_CHUTE_ON, val ? 1:0 );
     }
 
-    public void setMainSystemsPower(boolean val) {
-        btWriteMessage( MSG_POWER_UP_MAIN_SYSTEMS, val ? 1:0 );
+    public void setMainSystemsPower(boolean val,boolean withAudio) {
+        btWriteMessage( MSG_POWER_UP_MAIN_SYSTEMS, (val ? 1:0) | (withAudio ? ARG_WITH_AUDIO : 0x00) );
     }
 
-    public void setMainEngines(boolean val) {
-        btWriteMessage( MSG_POWER_UP_SUBLIGHT_ENGINES, val ? 1:0 );
+    public void setMainEngines(boolean val,boolean withAudio) {
+        btWriteMessage( MSG_POWER_UP_SUBLIGHT_ENGINES, (val ? 1:0) | (withAudio ? ARG_WITH_AUDIO : 0x00) );
     }
 
-    public void setLightspeedEngines(boolean val) {
-        btWriteMessage( MSG_POWER_UP_LIGHT_SPEED_ENGINES, val ? 1:0 );
+    public void setLightspeedEngines(boolean val,boolean withAudio) {
+        btWriteMessage( MSG_POWER_UP_LIGHT_SPEED_ENGINES, (val ? 1:0) | (withAudio ? ARG_WITH_AUDIO : 0x00) );
     }
 
+    public void stopAudio() {
+        btWriteMessage( MSG_STOP_AUDIO );
+    }
 
     public void rescan() {
         disconnectFromDevice();
@@ -535,4 +542,6 @@ public class ISDBluetoothController {
             }
         }, RESCAN_DELAY);
     }
+
+
 }

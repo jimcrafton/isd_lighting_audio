@@ -13,6 +13,7 @@
 
 
 #include "lib_isd_lights_audio.h"
+#include "lib_isd_audio_controller.h"
 #include "lib_isd_bluetooth.h"
 #include "lib_isd_i2c.h"
 

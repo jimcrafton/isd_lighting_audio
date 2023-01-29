@@ -6,131 +6,10 @@
 #include "lib_isd.h"
 
 
-#define TEST_INIT 1
-
 namespace libISD {
 
-    
+#define TEST_INIT 1
 
-    class ISDSecondaryAudioController : public ISDControllerI2CCallback {
-    private:
-
-        ClientI2C client;
-        SoundControllerBase sndController;
-    public:
-        enum Constants {
-            SOFTWARE_SERIAL_RX = 10, 
-            SOFTWARE_SERIAL_TX = 11,  
-            SERVER_INIT_LED_FREQUENCY = 500,
-        };
-
-        
-        bool serverInitSent;
-        bool serverPlaySent;
-        unsigned long prevMillis;
-
-        ISDSecondaryAudioController():
-            sndController(SOFTWARE_SERIAL_RX, SOFTWARE_SERIAL_TX),
-            serverInitSent(false),
-            serverPlaySent(false),
-            prevMillis(0){
-            prevMillis = millis();
-        }
-
-        virtual ~ISDSecondaryAudioController() {
-            
-        }
-
-
-        void init() {
-            delay(500);
-
-            client.init(this);
-            sndController.init();
-            sndController.stop();
-            Serial.println("2au ok");
-
-            digitalWrite(LED_BUILTIN, HIGH);
-            delay(250);
-            digitalWrite(LED_BUILTIN, LOW);
-            delay(250);
-            digitalWrite(LED_BUILTIN, HIGH);
-            delay(250);
-            digitalWrite(LED_BUILTIN, LOW);
-            delay(250);
-            digitalWrite(LED_BUILTIN, HIGH);
-            delay(250);
-            digitalWrite(LED_BUILTIN, LOW);
-        }
-
-        void loop() {
-            if (sndController.soundPlayer.available()) {
-                //Print the detail message from DFPlayer to handle different errors and states.
-                sndController.soundStatus(sndController.soundPlayer.readType(), sndController.soundPlayer.read());
-            }
-
-            if (!sndController.playerUsable) {
-                //Serial.println("!pu");
-                return;
-            }
-
-            unsigned long now = millis();
-
-            if (now - prevMillis > 500) {
-                if (serverInitSent) {                    
-                    if (digitalRead(LED_BUILTIN) == LOW) {
-                        digitalWrite(LED_BUILTIN, HIGH);                        
-                    }
-                    else {
-                        digitalWrite(LED_BUILTIN, LOW);
-                    }
-                }
-                prevMillis = now;
-            }
-
-
-            /*
-            //only loop every X millseconds. simulate delay()
-            int delayFactor = 20;
-            unsigned long  delta = now - startTime;
-            if (now % delayFactor == 0) {
-
-                for (int i = 0; i < MAX_SOUND_COUNT; i++) {
-                    Sound* sound = sounds[i];
-                    if (sound->isEnabled(delta)) {
-                        sound->update();
-                        //Serial.print("*su"); Serial.println(i);
-                        if (sound->isPlaying()) {
-                            //break;//don't check anyone else, busy now
-                        }
-                    }
-                }
-            }
-            */
-        }
-        
-
-        //ISDControllerI2CCallback impl
-        virtual void onUpdateAudioVolume(int val) {
-            sndController.setVolume(val);
-        }
-
-        virtual void onPlay(int song) {
-            serverPlaySent = true;
-
-            if (song == STOP_CURRENT) {
-                sndController.stop();
-            }
-            else {
-                sndController.play(song);
-            }
-        }
-
-        virtual void onServerInit() {
-            Serial.println("svr i");
-            serverInitSent = true;
-        }
-    };
 
     class ISDController : public ISDControllerBleCallback, 
                             public LedControllerEventDelegate,
@@ -179,20 +58,11 @@ namespace libISD {
         bool inMainLightsSequence;
 
         ISDController() :
-#if NEOPIXELS_ENABLED
             rgbNeoPixels(NEOPIXELS_LEDCOUNT, NEOPIXELS_PIN, NEO_RGB + NEO_KHZ800),
-#endif //NEOPIXELS_ENABLED
-            
-            miscLights(new ISDSpecialSections()) ,
-            
+            miscLights(new ISDSpecialSections()) ,            
             mainLights(new ISDSections()),
-
-            engines(new ISDEngines()),
-            
-            //sndController(new SoundController(SOFTWARE_SERIAL_RX,SOFTWARE_SERIAL_TX)),
-            
-            errorController(new ISDErrors()),
-            
+            engines(new ISDEngines()),            
+            errorController(new ISDErrors()),            
             bleDevice(new BLEDevice(4, 2, BLE_LED_STATE_PIN, BLE_LED_STATE_OUT)),
             audioServer(new ServerI2C()),
             inStartupSequence(false),
@@ -215,10 +85,10 @@ namespace libISD {
             //DPRINTLN("ISDController::init() starting...");
 #if TEST_INIT
             audioServer->init();
-            Serial.println("svr i");
+            //Serial.println("svr i");
 
 
-#if NEOPIXELS_ENABLED
+
             //neo pixels initialization
 
       // These lines are specifically to support the Adafruit Trinket 5V 16 MHz.
@@ -229,42 +99,41 @@ namespace libISD {
             // END of Trinket-specific code.
             rgbNeoPixels.begin();
             rgbNeoPixels.clear();
-            Serial.println("neo i");
-#endif //NEOPIXELS_ENABLED
+            //Serial.println("neo i");
+
 
             //tlc5940 init 
-#if TLC_5940_ENABLED
+
             Tlc.init();
             Tlc.clear();
             Tlc.update();
-            Serial.println("tlc i");
-#endif //TLC_5940_ENABLED
+            //Serial.println("tlc i");
 
 #endif
 
             bleDevice->begin(this, BLE_DEVICE_BAUD);
-            Serial.println("ble b");
+            //Serial.println("ble b");
             String s;
             bleDevice->help(s);
-            Serial.println("ble i");
+            //Serial.println("ble i");
 
             
 #if TEST_INIT
             //DPRINTLN("i miscL");
             miscLights->initSections(Tlc, this);
-            Serial.println("misc i");
+            //Serial.println("misc i");
 
             errorController->initSections(Tlc, ISDSpecialSections::SECTION_COUNT);
-            Serial.println("er i");
+            //Serial.println("er i");
 
             //DPRINTLN("i mainL");
             mainLights->initSections(rgbNeoPixels,this);
-            Serial.println("main i");
+            //Serial.println("main i");
 
             int engineOffset = ISDSections::SECTION_COUNT;            
             //DPRINTLN("i eng");
             engines->initEngines(rgbNeoPixels, engineOffset, this);
-            Serial.println("eng i");
+            //Serial.println("eng i");
 
             //DPRINTLN("i snd");
 #endif
@@ -279,13 +148,13 @@ namespace libISD {
 
             audioServer->sendCommand(i2c::MSG_INIT_FROM_SERVER, 0);
             
-            Serial.println("svr s");
+            //Serial.println("svr s");
 
             inStartupSequence = true;
             startMainLights();
 #endif
-            //setVolume(18);
-            //playSoundAt(FULL_START_UP, 0);
+            setVolume(18);
+            play(FULL_POWER_UP_INTRO_VADER);
         }
 
         void startMainLights() {
@@ -338,16 +207,12 @@ namespace libISD {
             audioServer->sendCommand(i2c::MSG_PLAY, val);
         }
 
-        //void playSoundAt(int sound, unsigned long startTimeFromNow) {
-            //sndController->playSoundAt(sound, startTimeFromNow);
-        //}
-
         void stopAudio() {
             audioServer->sendCommand(i2c::MSG_PLAY, STOP_CURRENT);
         }
 
         //ISDControllerBleCallback impl
-        virtual void onStartPowerSequence() {
+        virtual void onStartPowerSequence(bool withAudio) {
             mainLights->stop();
             engines->stop();
             miscLights->stop();
@@ -355,7 +220,9 @@ namespace libISD {
             inStartupSequence = true;
             inMainLightsSequence = true;
             startMainLights();
-            audioServer->sendCommand(i2c::MSG_PLAY, FULL_START_UP);
+            if (withAudio) {
+                play(FULL_POWER_UP_INTRO_VADER);
+            }
         }
 
         virtual void onUpdateAudioVolume(int val) {
@@ -368,6 +235,11 @@ namespace libISD {
             play(IMPERIAL_MARCH);
         }
 
+        virtual void onPlayVadersIntro() {
+            //Serial.println(">>1");
+            play(VADERS_INTRO);
+        }
+
         virtual void onGarbageChuteOn(bool val) {
             //Serial.println(">>2");
 
@@ -377,31 +249,62 @@ namespace libISD {
             miscLights->setGarbageChute(val);
         }
 
-        virtual void onPowerUpLightSpeedEngines(bool val) {
+        virtual void onPowerUpLightSpeedEngines(bool val, bool withAudio) {
             
-            Serial.print(">>3-"); Serial.println(val);
+            //Serial.print(">>3-"); Serial.println(val);
             engines->setMiniEngines(val);
+            if (val && withAudio) {
+                play(LIGHTSPEED_ENGINES_AUDIO);
+            }
+            if (!val) {
+                stopAudio();
+            }
         }
 
-        virtual void onPowerUpSubLightEngines(bool val) {
+        virtual void onPowerUpSubLightEngines(bool val, bool withAudio) {
             //Serial.print(">>4-"); Serial.println(val);
             engines->setMainEngines(val);
+            if (val && withAudio) {
+                play(MAIN_ENGINES_AUDIO);
+            }
+            if (!val) {
+                stopAudio();
+            }
             //engines->stop();
         }
 
-        virtual void onPowerUpMainSystems(bool val) {
+        virtual void onPowerUpMainSystems(bool val, bool withAudio) {
             //Serial.println(">>5");
             if (val) {
                 inMainLightsSequence = true;
                 startMainLights();
+                if (withAudio) {
+                    play(MAIN_LIGHTING_AUDIO);
+                }
             }
             else {
                 inMainLightsSequence = false;
                 stopMainLights();
                 stopMiscLights();
+                stopAudio();
             }
         }
 
+        virtual void onEnginesStartSequence(bool withAudio) {
+            inStartupSequence = false;
+            inStartupSequence = false;
+            startEngines();
+            if (withAudio) {                
+                play(FULL_ENGINES_AUDIO);
+            }
+            else {
+                stopAudio();                
+            }
+        }
+
+        virtual void onStopAudio() {
+            stopAudio();
+        }
 
         //LedControllerEventDelegate impl
 

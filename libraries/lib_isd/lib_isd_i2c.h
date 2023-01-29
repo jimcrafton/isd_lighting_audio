@@ -35,6 +35,7 @@ class  ServerI2C{
   }
 
   void sendCommand(byte cmd, byte arg) {
+      //Serial.print(cmd); Serial.print(":"); Serial.println(arg);
     Wire.beginTransmission(i2c::I2C_BUS_ID);
     Wire.write(i2c::STX);
     Wire.write(cmd);
@@ -107,7 +108,9 @@ class  ClientI2C{
     if (currentCmd[3] != i2c::ETX) {
       return;
     }
-
+    
+    //Serial.println("c pc");
+    //Serial.print(currentCmd[1]); Serial.print(":"); Serial.println(currentCmd[2]);
     
     switch(currentCmd[1]) {
       case i2c::MSG_UPDATE_AUDIO_VOLUME : {

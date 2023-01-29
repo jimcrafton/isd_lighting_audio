@@ -13,10 +13,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="ISD Controller"
+        android:singleLine="false"
+        android:text="ISD \nController"
+        android:textAlignment="center"
         android:textAllCaps="false"
         android:textColor="#CA0000"
-        android:textSize="16dp"
+        android:textSize="22sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -27,7 +29,7 @@
         style="@style/TheEmpireButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="30dp"
         android:enabled="false"
         android:text="Connect"
         android:textAppearance="@style/TextAppearance.AppCompat.Small"
@@ -40,7 +42,7 @@
         style="@style/TheEmpireButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="30dp"
         android:enabled="false"
         android:text="Disconnect"
         android:textAppearance="@style/TextAppearance.AppCompat.Small"
@@ -69,11 +71,12 @@
 
         <TextView
             android:id="@+id/statusLabel"
-            style="@style/TheEmpireLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="0.25"
-            android:text="Status:" />
+            android:text="Status:"
+            android:textColor="#CA0000"
+            android:textSize="18sp" />
 
         <TextView
             android:id="@+id/statusTxt"
@@ -82,7 +85,8 @@
             android:layout_weight="0.75"
             android:background="#4A171717"
             android:text="N/A"
-            android:textColor="#E40000" />
+            android:textColor="#E40000"
+            android:textSize="18sp" />
     </LinearLayout>
 
 
@@ -115,71 +119,98 @@
         android:layout_marginTop="10dp"
         android:text="Controls"
         android:textColor="#CA0000"
+        android:textSize="22sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/divider2" />
 
     <LinearLayout
-        android:id="@+id/ctrls1Layout"
+        android:id="@+id/audioCtrlsLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:divider="@drawable/spacer"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:showDividers="middle"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/ctrlsLabel">
 
         <TextView
-            android:id="@+id/audioLabel"
+            android:id="@+id/audioVolLabel"
             style="@style/TheEmpireLabel"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="0.4"
             android:text="Audio Volume"
-            android:textAlignment="textEnd"
+            android:textAlignment="center"
+            android:textColor="#CA0000"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
-        <SeekBar
-            android:id="@+id/audioVol1"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:id="@+id/ctrls1Layout"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="0.6"
-            android:thumbTint="#980101" />
+            android:layout_marginTop="10dp"
+            android:divider="@drawable/spacer"
+            android:orientation="horizontal"
+            android:showDividers="middle"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ctrlsLabel">
+
+            <Button
+                android:id="@+id/decrVolBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.2"
+                android:backgroundTint="#474747"
+                android:backgroundTintMode="src_over"
+                android:enabled="false"
+                android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                android:textColorHint="#780404"
+                app:icon="@android:drawable/arrow_down_float"
+                app:iconPadding="0dp"
+                app:iconTint="#CA0000" />
+
+            <SeekBar
+                android:id="@+id/audioVol1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="0.6"
+                android:thumbTint="#CA0000" />
+
+            <Button
+                android:id="@+id/incrVolBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.2"
+                android:backgroundTint="#474747"
+                android:backgroundTintMode="src_over"
+                android:enabled="false"
+                android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                android:textColorHint="#780404"
+                app:icon="@android:drawable/arrow_up_float"
+                app:iconPadding="0dp"
+                app:iconTint="#CA0000" />
+        </LinearLayout>
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/ctrls1aLayout"
-        android:layout_width="0dp"
+    <CheckBox
+        android:id="@+id/useAudioWithLight"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:divider="@drawable/spacer"
-        android:orientation="horizontal"
-        android:showDividers="middle"
+        android:buttonTint="#780404"
+        android:text="Use Audio with Lights"
+        android:textColor="#CA0000"
+        android:textSize="18sp"
+        android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ctrls1Layout">
+        app:layout_constraintTop_toBottomOf="@+id/audioCtrlsLayout" />
 
-        <TextView
-            android:id="@+id/audio2Label"
-            style="@style/TheEmpireLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="0.4"
-            android:text=""
-            android:textAlignment="textEnd" />
 
-        <CheckBox
-            android:id="@+id/useAudioWithLight"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="0.6"
-            android:buttonTint="#780404"
-            android:text="Use Audio with Lights"
-            android:textColor="#780404"
-            android:textStyle="bold" />
-    </LinearLayout>
 
     <ScrollView
         android:layout_width="0dp"
@@ -188,7 +219,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ctrls1aLayout">
+        app:layout_constraintTop_toBottomOf="@+id/useAudioWithLight">
 
         <LinearLayout
             android:id="@+id/ctrls2Layout"
@@ -199,6 +230,21 @@
             android:orientation="vertical"
             android:scrollbarAlwaysDrawVerticalTrack="true"
             android:scrollbarStyle="insideInset">
+
+            <Button
+                android:id="@+id/stopAudioBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:height="60dp"
+                android:autoText="false"
+                android:backgroundTint="#474747"
+                android:backgroundTintMode="src_over"
+                android:enabled="false"
+                android:text="Stop Audio"
+                android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                android:textColorHint="#780404"
+                />
 
             <Button
                 android:id="@+id/playImpMarchBtn"
@@ -215,7 +261,7 @@
                 android:textColorHint="#780404" />
 
             <Button
-                android:id="@+id/playImpMarchVaderBtn"
+                android:id="@+id/playVadersIntroBtn"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_margin="10dp"
@@ -224,7 +270,7 @@
                 android:backgroundTint="#474747"
                 android:backgroundTintMode="src_over"
                 android:enabled="false"
-                android:text="Play Vader Intro"
+                android:text="Play Vader's Intro"
                 android:textAppearance="@style/TextAppearance.AppCompat.Small"
                 android:textColorHint="#780404" />
 

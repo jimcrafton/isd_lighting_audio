@@ -3,7 +3,6 @@ package com.imperialcoders.darthvader;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.le.BluetoothLeScanner;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -29,9 +28,14 @@ public class MainActivity extends AppCompatActivity implements ISDControllerUIDe
             R.id.powerOffMainEngBtn,
             R.id.powerUpMiniEngBtn,
             R.id.powerOffMiniEngBtn,
-            R.id.audioLabel,
+            R.id.audioVolLabel,
             R.id.audioVol1,
-            R.id.playImpMarchVaderBtn};
+            R.id.playVadersIntroBtn,
+            R.id.useAudioWithLight,
+            R.id.enginesStartUpSeqBtn,
+            R.id.decrVolBtn,
+            R.id.incrVolBtn,
+            R.id.stopAudioBtn};
 
     Handler handler;
 
@@ -112,18 +116,11 @@ public class MainActivity extends AppCompatActivity implements ISDControllerUIDe
         });
 
         SeekBar audioVol = findViewById(R.id.audioVol1);
+        audioVol.setProgress(50);
 
         audioVol.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
+            @Override public void onProgressChanged(SeekBar seekBar, int i, boolean b) {}
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 MainActivity.this.audioVol1Changed(seekBar);
@@ -137,6 +134,14 @@ public class MainActivity extends AppCompatActivity implements ISDControllerUIDe
             @Override
             public void onClick(View view) {
                 MainActivity.this.onPlayImpMarchBtnClicked();
+            }
+        });
+
+        btn = findViewById(R.id.playVadersIntroBtn);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.onPlayVadersIntroBtnClicked();
             }
         });
 
@@ -221,34 +226,89 @@ public class MainActivity extends AppCompatActivity implements ISDControllerUIDe
         });
 
 
+        btn = findViewById(R.id.decrVolBtn);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.onDecrVolBtnClicked();
+            }
+        });
+
+        btn = findViewById(R.id.incrVolBtn);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.onIncrVolBtnClicked();
+            }
+        });
+
+        btn = findViewById(R.id.stopAudioBtn);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MainActivity.this.onStopAudioBtnClicked();
+            }
+        });
+
         btController = new ISDBluetoothController();
         btController.init(this, this);
+
 
         enableControls(false);
     }
 
+    private void onStopAudioBtnClicked() {
+        btController.stopAudio ();
+    }
+
+    void nudgeVolume(int nudgeVal) {
+        SeekBar audioVol = findViewById(R.id.audioVol1);
+        int val = audioVol.getProgress();
+        val = Math.max(0, Math.min( 100, val+nudgeVal));
+        audioVol.setProgress(val);
+        audioVol1Changed(audioVol);
+    }
+
+    private void onIncrVolBtnClicked() {
+        nudgeVolume(10);
+    }
+
+    private void onDecrVolBtnClicked() {
+        nudgeVolume(-10);
+    }
+
+    private void onPlayVadersIntroBtnClicked() {
+
+        btController.playVadersIntro ();
+    }
+
     private void onPowerOffMiniEngBtnClicked() {
-        btController.setLightspeedEngines(false);
+        CheckBox cb = findViewById(R.id.useAudioWithLight);
+        btController.setLightspeedEngines(false, cb.isChecked());
     }
 
     private void onPowerUpMiniEngBtnClicked() {
-        btController.setLightspeedEngines(true);
+        CheckBox cb = findViewById(R.id.useAudioWithLight);
+        btController.setLightspeedEngines(true, cb.isChecked());
     }
 
     private void onPowerOffMainEngBtnClicked() {
-        btController.setMainEngines(false);
+        CheckBox cb = findViewById(R.id.useAudioWithLight);
+        btController.setMainEngines(false, cb.isChecked());
     }
 
     private void onPowerUpMainEngBtnClicked() {
-        btController.setMainEngines(true);
+        CheckBox cb = findViewById(R.id.useAudioWithLight);
+        btController.setMainEngines(true,cb.isChecked());
     }
 
     private void onPowerOffMainBtnClicked() {
-        btController.setMainSystemsPower(false);
+        btController.setMainSystemsPower(false,false);
     }
 
     private void onPowerUpMainBtnClicked() {
-        btController.setMainSystemsPower(true);
+        CheckBox cb = findViewById(R.id.useAudioWithLight);
+        btController.setMainSystemsPower(true,cb.isChecked());
     }
 
     private void onGarageChuteOffBtnClicked() {

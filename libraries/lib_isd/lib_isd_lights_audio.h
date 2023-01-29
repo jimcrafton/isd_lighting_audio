@@ -23,7 +23,8 @@
 
 
 #include "SoftwareSerial.h"
-#include "DFRobotDFPlayerMini.h"
+
+#include <DFPlayerMini_Fast.h>
 
 
 namespace libISD {
@@ -1310,111 +1311,15 @@ public:
     }
 };
 
-class Sound : public BaseController {
-  public:
-
-  enum Constants{
-    MAX_VOLUME = 20,
-  };  
-  
-
-  byte intensity;
-  byte value;
-  
-  bool playStarted;
-  bool loopMode;
-  byte playCount;
-  static DFRobotDFPlayerMini* g_playerPtr;
-  
-  Sound():
-      BaseController(),    
-    intensity(0),
-    value(0),    
-    playStarted(false),
-    loopMode(false),
-    playCount(0)
-    {
-    
-  }
-
-  void incrIntensity(byte intensityIncr) {
-    if (intensity < 255) {
-      intensity = min(intensity + intensityIncr,255);
-      setModified(true);
-    }
-  }
-  
-
-  void init(DFRobotDFPlayerMini& p, int index, byte v, unsigned long st, byte initialIntensity) {
-    g_playerPtr = &p;
-    setStartTime(st);
-    setIdx(index);    
-    intensity = initialIntensity;
-    setValue(v);
-    setModified(true);
-  }
-
-  void setValue(byte  v) {
-    if (v != value) {
-      value = v;
-      setModified(true);
-    }
-  }
-
-  void setLoop( bool v) {
-    if (v != loopMode) {
-      loopMode = v;
-      setModified(true);
-    }
-  }
-    
-  void playStopped() { playStarted = false; }
-  bool isPlaying() const { return true == playStarted; }
-
-  void stop() {
-      setStartTimeInvalid();
-    if (g_playerPtr) {
-      if (g_playerPtr->readCurrentFileNumber() == this->getIdx()) {
-          //Serial.print("-s"); Serial.println(getIdx());
-          g_playerPtr->pause();
-      }
-    }
-  }
-  
-  void update() {
-    //incrIntensity();
-    
-    if (isModified()) {
-      if (g_playerPtr) {
-          //int vol = min(value * intensity / 255, 255);
-          //vol = map(vol, 0, 255, 0, MAX_VOLUME);
-        
-          //very expensive call!! Need tso reduce calls to this!
-          //g_playerPtr->volume(vol);  //Set volume value. From 0 to 30
-        //DPRINT("vol changed to "); DPRINTLN(vol);
-
-        if (!playStarted) {
-          if ( (playCount==0) || ((playCount > 0) && loopMode)) {
-              g_playerPtr->play(getIdx());
-            DPRINT("Playing item "); DPRINTLN(getIdx());     
-            //Serial.print("*p"); Serial.print(getIdx()); Serial.println(millis());
-            playStarted = true; 
-            playCount ++;
-          }
-        }
-      }
-    }
-    setModified(false);
-  }
-};
-
-
 enum SoundConstants {
-    IMPERIAL_MARCH = 1,
-    VADERS_INTRO = 2,
-    //ENGINES_STARTUP = 1,
-    //SECTION_POWERUP = 2,
-    FULL_START_UP = 1,
+    FULL_POWER_UP_INTRO_VADER = 1,
+    FULL_POWER_UP_NO_MUSIC = 2,
+    MAIN_LIGHTING_AUDIO = 3,
+    MAIN_ENGINES_AUDIO = 4,
+    LIGHTSPEED_ENGINES_AUDIO = 5,
+    FULL_ENGINES_AUDIO = 6,
+    IMPERIAL_MARCH = 7,
+    VADERS_INTRO = 8,    
     STOP_CURRENT = 0xFF
 };
 
@@ -1427,11 +1332,8 @@ public:
     };
 
 
-
-    Sound* sounds[MAX_SOUND_COUNT];
-
     SoftwareSerial serialControl;
-    DFRobotDFPlayerMini soundPlayer;
+    DFPlayerMini_Fast soundPlayer;
 
     bool playerUsable;
     byte playerVolume;
@@ -1448,18 +1350,23 @@ public:
     virtual ~SoundControllerBase() {
     }
 
-    void stop() {
+    void stop() {        
+        delay(500);
         soundPlayer.pause();
+        Serial.println("s");
     }
 
-    void play(int idx) {
+    void play(int idx) {        
+        delay(500);
         soundPlayer.play(idx);
+        Serial.println("pp");
     }
 
     byte getVolume() const { return playerVolume; }
 
     void setVolume(byte val) {
         if (val != playerVolume) {
+            delay(500);
             playerVolume = val;
             soundPlayer.volume(playerVolume);
             Serial.print("spv-"); Serial.println(val);
@@ -1475,11 +1382,13 @@ public:
         unsigned long curr = millis();
         playerUsable = false;
 
-        if (!soundPlayer.begin(serialControl, true, false)) {  //Use softwareSerial to communicate with mp3.
+        if (!soundPlayer.begin(serialControl, true)) {  //Use softwareSerial to communicate with mp3.
             //DPRINTLN(F("err:"));
             //DPRINTLN(F("1.Please recheck the connection!"));
-            //DPRINTLN(F("2.Please insert the SD card!"));
+            //DPRINTLN(F("2.Please insert the SD card!"));            
+            
             ErrorControllerDelegate::g_delegatePtr->onError(ErrorControllerDelegate::DFPLAYER_STARTUP_ERR, 0);
+            /*
             while (true) {
                 delay(0); // Code to compatible with ESP8266 watch dog.
                 if ((millis() - curr) > DFPLAYER_INIT_TIMEOUT) {
@@ -1489,6 +1398,7 @@ public:
                     break;
                 }
             }
+            */
         }
         else {
             playerUsable = true;
@@ -1498,14 +1408,17 @@ public:
 
         Serial.println("dfok");
 
-        soundPlayer.EQ(DFPLAYER_EQ_CLASSIC);
+        //serialControl.listen();
+
+        soundPlayer.EQSelect(dfplayer::EQ_CLASSIC);
         soundPlayer.volume(playerVolume);
 
         startTime = millis();
     }
 
-
+    /*
     virtual void soundStatus(uint8_t type, int value) {
+        Serial.print("stat:"); Serial.print(type); Serial.print(":"); Serial.println(value);
         switch (type) {
         case TimeOut:
             DPRINTLN("s: A");// F("Time Out!"));
@@ -1535,8 +1448,11 @@ public:
             
             break;
         case DFPlayerError:
-            //Serial.print(F("DFPlayerError:"));
-            ErrorControllerDelegate::g_delegatePtr->onError(ErrorControllerDelegate::DFPLAYER_ERR, value);
+            Serial.print(F("DFPlayerError:"));
+            if (ErrorControllerDelegate::g_delegatePtr) {
+                ErrorControllerDelegate::g_delegatePtr->onError(ErrorControllerDelegate::DFPLAYER_ERR, value);
+            }
+            
             switch (value) {
             case Busy:
                 //DPRINTLN(F("Card not found"));
@@ -1569,138 +1485,9 @@ public:
             break;
         }
     }
+    */
 
 };
-
-
-class SoundController: public SoundControllerBase {
-public:
-  
-
-  
-  Sound* sounds[MAX_SOUND_COUNT];
-  
-  SoundController( int rxPin, int txPin ):SoundControllerBase(rxPin,txPin){
-      
-    for (int i=0;i<MAX_SOUND_COUNT;i++ ) {
-      sounds[i] = new Sound();
-    }
-  }
-
-  virtual ~SoundController() {
-    for (int i=0;i<MAX_SOUND_COUNT;i++ ) {
-      delete sounds[i];
-    }
-  }
-
-  static size_t sizeOf() {
-      return sizeof(SoundController) + (sizeof(Sound) * MAX_SOUND_COUNT);
-  }
-
-  Sound* getSound(int idx) {
-    Sound* result = NULL;
-    if (idx >= 0 && idx <MAX_SOUND_COUNT) {
-      result = sounds[idx];
-    }
-    return result;  
-  }
-
-  void stopSounds() {
-    for (int i=0;i<MAX_SOUND_COUNT;i++ ) {
-      sounds[i]->stop();
-    }
-  }
-
-  void playSound( int idx ) {
-      playSoundAt(idx, 0);
-  }
-
-  void playSoundAt(int idx, unsigned long startTimeFromNow) {
-      Sound* sound = getSound(idx);
-      if (NULL != sound) {
-          sound->setStartTime(startTimeFromNow);
-          sound->setEnabled(true);
-      }
-  }
-
-  void init() {
-    SoundControllerBase::init();
-    if (playerUsable) {
-        for (int i = 0; i < MAX_SOUND_COUNT; i++) {
-            Sound* sound = sounds[i];
-            sound->init(soundPlayer, i, 1, -1, 1);
-            sound->setEnabled(false);
-        }
-        sounds[0]->init(soundPlayer, 7, 1, 0, 0);
-        sounds[1]->init(soundPlayer, 8, 1, 0, 0);
-    }
-  }
-
-  void initSound(int index, int soundIndex, float v, int st, byte initialIntensity) {
-      Sound* sound = getSound(index);
-      if (sound) {
-          sound->init(soundPlayer, soundIndex, v, st, initialIntensity);
-      }
-  }
-
-  
-  virtual void soundStatus(uint8_t type, int value){
-    switch (type) {      
-      case DFPlayerPlayFinished:
-        //Serial.print(F("Number:"));
-         // Serial.print("*pf"); Serial.println(value);
-        //Serial.print(value);
-        //DPRINTLN(F(" Play Finished!"));
-
-        Sound* sound = getSound(value);
-        if (sound != NULL) {
-          sound->playStopped();
-        }
-        break;
-      default:
-          SoundControllerBase::soundStatus(type, value);
-        break;
-    } 
-  }
-
-
-  void loop() {    
-    if (soundPlayer.available()) {
-      //Print the detail message from DFPlayer to handle different errors and states.
-      soundStatus(soundPlayer.readType(), soundPlayer.read()); 
-    }
-
-    if (!playerUsable) {
-        //Serial.println("!pu");
-        return;
-    }    
-
-    unsigned long now = millis();
-
-    //only loop every X millseconds. simulate delay()
-    int delayFactor = 20;
-    unsigned long  delta = now-startTime;
-    if (now % delayFactor == 0 ) {
-    
-      for (int i=0;i<MAX_SOUND_COUNT;i++ ) {
-        Sound* sound = sounds[i];          
-        if ( sound->isEnabled(delta) ) {
-          sound->update(); 
-          //Serial.print("*su"); Serial.println(i);
-          if (sound->isPlaying()) {
-            //break;//don't check anyone else, busy now
-          }
-        }
-      }
-    }    
-  }
-};
-
-
-
-
-
-
 
 } //namespace libISD
 

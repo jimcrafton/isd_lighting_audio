@@ -13,11 +13,14 @@ public:
 
     virtual void onUpdateAudioVolume( int val ) = 0;
     virtual void onPlayImperialMarch() = 0;
+    virtual void onPlayVadersIntro() = 0;
     virtual void onGarbageChuteOn( bool val ) = 0;
-    virtual void onPowerUpLightSpeedEngines( bool val ) = 0;
-    virtual void onPowerUpSubLightEngines( bool val ) = 0;
-    virtual void onPowerUpMainSystems( bool val ) = 0;
-    virtual void onStartPowerSequence() = 0;
+    virtual void onPowerUpLightSpeedEngines( bool val, bool withAudio ) = 0;
+    virtual void onPowerUpSubLightEngines( bool val, bool withAudio) = 0;
+    virtual void onPowerUpMainSystems( bool val, bool withAudio) = 0;
+    virtual void onStartPowerSequence(bool withAudio) = 0;
+    virtual void onEnginesStartSequence(bool withAudio) = 0;
+    virtual void onStopAudio() = 0;
 };
 
 
@@ -64,12 +67,26 @@ class BLEDevice {
     MSG_POWER_UP_SUBLIGHT_ENGINES = 0xFB,
     MSG_POWER_UP_MAIN_SYSTEMS = 0xFA,
     MSG_START_POWER_SEQUENCE = 0xF8,
+    MSG_PLAY_VADER_INTRO = 0xF7,
+    MSG_ENGINES_START_SEQUENCE = 0xF6,
+    MSG_STOP_AUDIO = 0xF5,
+
+    ARG_WITH_AUDIO = 0x02, //value in second bit of 8 bits
+    ARG_WITH_BOOL_MASK = 0xFF - 0xFE,
+    ARG_WITH_AUDIO_MASK = 0xFF-0xFD,
 
     READ_TIMEOUT = 2000,
     STATE_TIMEOUT = 1000,
     HM_10_MIN_VAL = 300 
   };
   
+  static inline bool booleanArg(byte arg) {
+      return (arg & ARG_WITH_BOOL_MASK) ? true : false;
+  }
+
+  static inline bool audioArg(byte arg) {
+      return ((arg & ARG_WITH_AUDIO_MASK)>>1) ? true : false;
+  }
   
   
   void begin( ISDControllerBleCallback* callback, int baudRate=9600 ) {
@@ -215,6 +232,13 @@ class BLEDevice {
       }
       break;
 
+      case MSG_PLAY_VADER_INTRO: {
+          if (callbackPtr) {
+              callbackPtr->onPlayVadersIntro();
+          }
+      }
+      break;
+
       case MSG_GARBAGE_CHUTE_ON : {
         if (callbackPtr){
           callbackPtr->onGarbageChuteOn(arg?true:false);
@@ -224,36 +248,51 @@ class BLEDevice {
 
       case MSG_POWER_UP_LIGHT_SPEED_ENGINES : {
         if (callbackPtr){
-          callbackPtr->onPowerUpLightSpeedEngines(arg?true:false);
+          callbackPtr->onPowerUpLightSpeedEngines(booleanArg(arg), audioArg(arg));
         }
       }
       break;
 
       case MSG_POWER_UP_SUBLIGHT_ENGINES : {
         if (callbackPtr){
-          callbackPtr->onPowerUpSubLightEngines(arg?true:false);
+          callbackPtr->onPowerUpSubLightEngines(booleanArg(arg), audioArg(arg));
         }
       }
       break;
 
       case MSG_POWER_UP_MAIN_SYSTEMS : {
         if (callbackPtr){
-          callbackPtr->onPowerUpMainSystems(arg?true:false);
+          callbackPtr->onPowerUpMainSystems(booleanArg(arg), audioArg(arg));
         }
       }
       break;
 
       case MSG_START_POWER_SEQUENCE: {
           if (callbackPtr) {
-              callbackPtr->onStartPowerSequence();
+              callbackPtr->onStartPowerSequence(audioArg(arg));
+          }
+      }
+      break;
+
+      case MSG_ENGINES_START_SEQUENCE: {
+          if (callbackPtr) {
+              callbackPtr->onEnginesStartSequence(audioArg(arg));
+          }
+      }
+      break;
+
+      case MSG_STOP_AUDIO: {
+          if (callbackPtr) {
+              callbackPtr->onStopAudio();
           }
       }
       break;
       
       
+      
       default : {
           DPRINTLN("Unknown command!");
-          Serial.println("!U");
+          //Serial.println("!U");
          return;
       }
       break;

@@ -37,6 +37,7 @@
             android:name=".SplashScreen"
             android:exported="true"
             android:theme="@style/SplashTheme"
+            android:screenOrientation="portrait"
             >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -46,7 +47,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="false"
-
+            android:screenOrientation="portrait"
             >
         </activity>
     </application>
